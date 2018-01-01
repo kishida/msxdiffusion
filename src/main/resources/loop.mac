@@ -162,7 +162,9 @@ YMOD96_1:
 	LD A, C
 	AND 0F0H
 	SUB B
-	LD (DIFFR), A
+	EXX
+	LD D, A
+	EXX
 
 			; int dg = yg[0][cr];
 	LD DE, BUFSIZ
@@ -177,11 +179,11 @@ YMOD96_1:
 			; }
 	CLIP7
 	MUL32
-        LD L, A
+	LD L, A
 			; dg = dg - g * 16;
 	RRA
 	SUB A, C
-        NEG
+	NEG
 	LD C, A
 			; int tg = dg * 6 / 16; yg[0][cw] = tg;
 	MUL6
@@ -197,12 +199,14 @@ YMOD96_1:
 	LD A, C
 	SUB A, B
 	SUB A, D
-	LD (DIFFG), A
+	EXX
+	LD E, A
+	EXX
 
 			; c = color(r * 32 + g * 4 + b1)
-        LD A, (B1)
-        ADD A, H
-        ADD A, L
+	LD A, (B1)
+	ADD A, H
+	ADD A, L
 	LD D, A
 
 			; img.setrgb(0, y, c);
@@ -239,8 +243,9 @@ LOOPX:
 	LD A, (VAR_Y)
 	MODULO 96
 	ADD A, (IX + 1)
-	LD HL, DIFFR
-	ADD A, (HL)
+	EXX
+	ADD A, D
+	EXX
 
 			; r = dr / 12;
 	LD E, A
@@ -279,7 +284,9 @@ LOOPX:
 	LD (IY+0),A
 	LD A, E
 	SUB D
-	LD (DIFFR), A
+	EXX
+	LD D, A
+	EXX
 
 	LD DE, BUFSIZ
 	ADD IX, DE
@@ -291,9 +298,9 @@ LOOPX:
 	EXX
 	MODULO 128
 	ADD A, (IX + 1)
-	LD D, A
-	LD A, (DIFFG)
-	ADD A, D
+	EXX
+	ADD A, E
+	EXX
 	JP NC, RCLIP
 	LD A, 0FFH
 RCLIP:
@@ -333,7 +340,9 @@ RCLIP:
 	LD (IY+0),A
 	LD A,E
 	SUB D
-	LD (DIFFG), A
+	EXX
+	LD E, A
+	EXX
 
 			; c = color(g * 32 + r * 4 + b1 + x / 128)
 	LD A, (B1)
@@ -411,8 +420,6 @@ DIVM_N:
 DIFFNR:	DEFS BUFSIZ
 DIFFNG: DEFS BUFSIZ
 DUMMY:	DEFB 0
-DIFFR:	DEFB 0
-DIFFG:	DEFB 0
 B1:	DEFB 0
 VAR_Y:	DEFB 0
 
