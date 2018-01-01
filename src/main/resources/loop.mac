@@ -6,17 +6,12 @@ ENDM
 
 MUL6 MACRO
 	ADD A, A
-	LD B, A
-	ADD A, A
-	ADD A, B
+	MUL3
 ENDM
 
 MUL12 MACRO
 	ADD A, A
-	ADD A, A
-	LD B, A
-	ADD A, A
-	ADD A, B
+	MUL6
 ENDM
 
 MUL16 MACRO
@@ -28,10 +23,7 @@ ENDM
 
 MUL32 MACRO
 	ADD A, A
-	ADD A, A
-	ADD A, A
-	ADD A, A
-	ADD A, A
+	MUL16
 ENDM
 
 DIV16A MACRO
@@ -52,6 +44,22 @@ DIV64A MACRO
 	AND 3
 ENDM
 
+DIV3 MACRO
+	LD C, 0C0H
+	LD D, 7
+	CALL DIV_JP
+ENDM
+
+DIV10 MACRO
+	LD C, 0A0H
+	LD D, 5
+	CALL DIV_JP
+ENDM
+
+DIV12 MACRO
+	CALL DIV_12
+ENDM
+
 CLIP7 MACRO
 	LOCAL CLIPEND
 	CP 8
@@ -70,6 +78,7 @@ ENDM
 
 RDVDP	EQU	6H
 WRVDP	EQU	7H
+BUFSIZ	EQU	512
 
 	ORG 0C000H-7
 			; bsave header
@@ -79,7 +88,7 @@ WRVDP	EQU	7H
 	DEFW 0C000H
 
 			; clear diffnr, diffng
-	LD BC, 256 * 2 * 2
+	LD BC, BUFSIZ * 2
 	LD HL, DIFFNR
 	LD D, 0
 INIT:
@@ -116,12 +125,12 @@ LOOPY:
 
 			; int dr = yr[0][cr] + (y % 96);
 			; int b1 = y / 96 * 2;
-	LD B, 0
-	LD A, (VAR_Y)
-	CP 96
-	JP C, YMOD96_1
-	SUB 96
 	LD B, 2
+	LD A, (VAR_Y)
+	SUB 96
+	JP NC, YMOD96_1
+	ADD 96
+	LD B, 0
 YMOD96_1:
 	LD HL, B1
 	LD (HL), B
@@ -132,18 +141,14 @@ YMOD96_1:
 			; }
 			; dr = dr - r * 12;
 	LD E, A
-	CALL DIV12
-	;LD C, A
+	DIV12
 	LD A, B
 	CLIP7
-	;LD (COLR), A
 	LD H, A
 	MUL12
-	LD B, A
-	LD A, E
-	SUB A, B
+	SUB A, E
+	NEG
 			; int tr = dr * 6 / 16; yr[0][cw] = tr;
-	;LD A, C
 	MUL6
 	DIV16A
 	LD (IY+0), A
@@ -159,7 +164,7 @@ YMOD96_1:
 	LD (DIFFR), A
 
 			; int dg = yg[0][cr];
-	LD DE, 512
+	LD DE, BUFSIZ
 	ADD IX, DE
 	ADD IY, DE
 	LD C, (IX+0)
@@ -170,7 +175,6 @@ YMOD96_1:
 			;     g = 7;
 			; }
 	CLIP7
-	;LD (COLG), A
 	LD L, A
 			; dg = dg - g * 16;
 	MUL16
@@ -210,7 +214,7 @@ YMOD96_1:
 	LD A, (WRVDP)
 	LD C, A
 	INC C
-	
+
 	LD A, (VAR_Y)
 	LD B, A
 	DIV64A
@@ -228,12 +232,11 @@ YMOD96_1:
 	OUT (C), D
 	EI
 
-	AND A
-	LD DE, -512
+	LD DE, -BUFSIZ
 	ADD IX, DE
 	ADD IY, DE
 
-	XOR A
+	LD A, 1
 	LD (VAR_X),A
 LOOPX:
 			; dr = dr + yr[x][cr] + (y % 96);
@@ -244,31 +247,29 @@ LOOPX:
 	ADD A, (HL)
 
 			; r = dr / 12;
-			; dr = dr - r * 12;
 	LD E, A
-	CALL DIV12
+	DIV12
 	LD A, B
 			; if (r > 7){
 			;     r = 7;
 			; }
 	CLIP7
 	LD (COLR), A
+			; dr = dr - r * 12;
 	MUL12
-	LD B, A
-	LD A, E
-	SUB A, B
+	SUB A, E
+	NEG
 
 			; t = dr / 16; yr[x + 1][cw] = t; dr = dr - t;
-	;LD A, C
+	LD E, A
 	DIV16A
 	LD (IY+2), A
-	LD B, A
-	LD A, C
-	SUB B
+	SUB E
+	NEG
 	LD E, A
 			; t = dr / 3; yr[x][cw] = yr[x][cw] + t; dr = dr - t;
-	CALL DIV3
-	LD B, A
+	DIV3
+	LD A, B
 	ADD A, (IY+1)
 	LD (IY+1),A
 	LD A, E
@@ -277,26 +278,30 @@ LOOPX:
 			; t = dr * 3 / 10; yr[x - 1][cw] = yr[x - 1][cw] + t;
 			; dr = dr - t;
 	MUL3
-	CALL DIV10
-	LD B, A
+	DIV10
+	LD A, B
 	ADD A, (IY+0)
 	LD (IY+0),A
 	LD A, E
 	SUB B
 	LD (DIFFR), A
 
-	LD DE, 512
+	LD DE, BUFSIZ
 	ADD IX, DE
 	ADD IY, DE
+
 			; dg = dg + yg[x][cr] + (x % 128);
 	LD A, (VAR_X)
 	MODULO 128
 	ADD A, (IX + 1)
 	LD HL, DIFFG
 	ADD A, (HL)
+	JP NC, RCLIP
+	LD A, 0FFH
+RCLIP:
 
 			; g = dg / 16;
-	LD C, A
+	LD E, A
 	DIV16A
 			; if (g > 7){
 			;     g = 7;
@@ -305,20 +310,18 @@ LOOPX:
 	LD (COLG), A
 			; dg = dg - g * 16;
 	MUL16
-	LD B, A
-	LD A, C
-	SUB A, B
-	LD C, A
+	SUB A, E
+	NEG
+	LD E, A
 			; t = dg / 16; yg[x + 1][cw] = t; dg = dg - t;
 	DIV16A
 	LD (IY+2), A
-	LD B, A
-	LD A, C
-	SUB B
+	SUB A, E
+	NEG
 	LD E, A
 			; t = dg / 3; yg[x][cw] = yg[x][cw] + t; dg = dg - t;
-	CALL DIV3
-	LD B, A
+	DIV3
+	LD A, B
 	ADD A, (IY + 1)
 	LD (IY+1), A
 	LD A, E
@@ -327,15 +330,15 @@ LOOPX:
 			; t = dg * 3 / 10; yg[x - 1][cw] = yg[x - 1][cw] + t;
 			; dg = dg - t;
 	MUL3
-	CALL DIV10
-	LD B, A
+	DIV10
+	LD A, B
 	ADD A, (IY+0)
 	LD (IY+0),A
 	LD A,E
 	SUB B
 	LD (DIFFG), A
 
-			; c = color(r * 32 + g * 4 + b1 + x / 128)
+			; c = color(g * 32 + r * 4 + b1 + x / 128)
 	LD A, (COLR)
 	ADD A, A
 	ADD A, A
@@ -367,8 +370,7 @@ DIV128:
 	OUT (C), D
 	EI
 
-	AND A
-	LD DE, -511
+	LD DE, -BUFSIZ+1
 	ADD IX, DE
 	ADD IY, DE
 
@@ -388,15 +390,7 @@ DIV128:
 ; OUT A MOD
 ;     B DIV
 ; USE C, D
-DIV3:
-	LD C, 0C0H
-	LD D, 7
-	JP DIV_JP
-DIV10:
-	LD C, 0A0H
-	LD D, 5
-	JP DIV_JP
-DIV12:
+DIV_12:
 	LD C, 0C0H
 	LD D, 5
 DIV_JP:
@@ -416,8 +410,9 @@ DIV_NX:
 	
 VAR_X:	DEFB 0
 VAR_Y:	DEFB 0
-DIFFNR:	DEFS 256*2
-DIFFNG: DEFS 256*2
+DIFFNR:	DEFS BUFSIZ
+DIFFNG: DEFS BUFSIZ
+DUMMY:	DEFB 0
 DIFFR:	DEFB 0
 DIFFG:	DEFB 0
 B1:	DEFB 0
