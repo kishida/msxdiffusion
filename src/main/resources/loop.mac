@@ -84,7 +84,7 @@ BUFSIZ	EQU	512
 			; bsave header
 	DEFB 0FEH
 	DEFW 0C000H
-	DEFW COLG
+	DEFW VAR_Y
 	DEFW 0C000H
 
 			; clear diffnr, diffng
@@ -143,8 +143,10 @@ YMOD96_1:
 	LD E, A
 	DIV12
 	CLIP7
+	ADD A, A
+	ADD A, A
 	LD H, A
-	MUL12
+	MUL3
 	SUB A, E
 	NEG
 			; int tr = dr * 6 / 16; yr[0][cw] = tr;
@@ -174,12 +176,12 @@ YMOD96_1:
 			;     g = 7;
 			; }
 	CLIP7
-	LD L, A
+	MUL32
+        LD L, A
 			; dg = dg - g * 16;
-	MUL16
-	LD B, A
-	LD A, C
-	SUB A, B
+	RRA
+	SUB A, C
+        NEG
 	LD C, A
 			; int tg = dg * 6 / 16; yg[0][cw] = tg;
 	MUL6
@@ -198,15 +200,9 @@ YMOD96_1:
 	LD (DIFFG), A
 
 			; c = color(r * 32 + g * 4 + b1)
-	LD A, L
-	MUL32
-	LD L, A
-	LD A, H
-	ADD A, A
-	ADD A, A
-	ADD A, L
-	LD HL, B1
-	ADD A, (HL)
+        LD A, (B1)
+        ADD A, H
+        ADD A, L
 	LD D, A
 
 			; img.setrgb(0, y, c);
@@ -252,9 +248,11 @@ LOOPX:
 			;     r = 7;
 			; }
 	CLIP7
-	LD (COLR), A
+	ADD A, A
+	ADD A, A
+	LD L, A
 			; dr = dr - r * 12;
-	MUL12
+	MUL3
 	SUB A, E
 	NEG
 
@@ -290,8 +288,9 @@ LOOPX:
 	LD A, (VAR_X)
 	MODULO 128
 	ADD A, (IX + 1)
-	LD HL, DIFFG
-	ADD A, (HL)
+	LD D, A
+	LD A, (DIFFG)
+	ADD A, D
 	JP NC, RCLIP
 	LD A, 0FFH
 RCLIP:
@@ -303,9 +302,10 @@ RCLIP:
 			;     g = 7;
 			; }
 	CLIP7
-	LD (COLG), A
+	MUL32
+	LD H, A
 			; dg = dg - g * 16;
-	MUL16
+	RRA
 	SUB A, E
 	NEG
 	LD E, A
@@ -333,15 +333,9 @@ RCLIP:
 	LD (DIFFG), A
 
 			; c = color(g * 32 + r * 4 + b1 + x / 128)
-	LD A, (COLR)
-	ADD A, A
-	ADD A, A
-	LD L, A
-	LD A, (COLG)
-	MUL32
+	LD A, (B1)
+	ADD A, H
 	ADD A, L
-	LD HL, B1
-	ADD A, (HL)
 	LD D, A
 	LD A, (VAR_X)
 	LD E, A
@@ -409,15 +403,13 @@ DIVM_N:
 	LD A, D
 	RET
 
-VAR_X:	DEFB 0
-VAR_Y:	DEFB 0
 DIFFNR:	DEFS BUFSIZ
 DIFFNG: DEFS BUFSIZ
 DUMMY:	DEFB 0
 DIFFR:	DEFB 0
 DIFFG:	DEFB 0
 B1:	DEFB 0
-COLR:	DEFB 0
-COLG:	DEFB 0
+VAR_X:	DEFB 0
+VAR_Y:	DEFB 0
 
 	END
