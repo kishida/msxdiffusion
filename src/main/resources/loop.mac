@@ -231,8 +231,9 @@ YMOD96_1:
 	ADD IX, DE
 	ADD IY, DE
 
-	LD A, 1
-	LD (VAR_X),A
+	EXX
+	LD B, 1
+	EXX
 LOOPX:
 			; dr = dr + yr[x][cr] + (y % 96);
 	LD A, (VAR_Y)
@@ -285,7 +286,9 @@ LOOPX:
 	ADD IY, DE
 
 			; dg = dg + yg[x][cr] + (x % 128);
-	LD A, (VAR_X)
+	EXX
+	LD A, B
+	EXX
 	MODULO 128
 	ADD A, (IX + 1)
 	LD D, A
@@ -337,7 +340,9 @@ RCLIP:
 	ADD A, H
 	ADD A, L
 	LD D, A
-	LD A, (VAR_X)
+	EXX
+	LD A, B
+	EXX
 	LD E, A
 	AND 128
 	JP Z, DIV128
@@ -362,9 +367,9 @@ DIV128:
 	ADD IX, DE
 	ADD IY, DE
 
-	LD A,(VAR_X)
-	INC A
-	LD (VAR_X),A
+	EXX
+	INC B
+	EXX
 	JP NZ, LOOPX
 
 	LD A,(VAR_Y)
@@ -409,7 +414,6 @@ DUMMY:	DEFB 0
 DIFFR:	DEFB 0
 DIFFG:	DEFB 0
 B1:	DEFB 0
-VAR_X:	DEFB 0
 VAR_Y:	DEFB 0
 
 	END
