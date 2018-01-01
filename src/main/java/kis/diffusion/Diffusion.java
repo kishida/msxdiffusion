@@ -52,7 +52,6 @@ public class Diffusion {
             
             for (int x = 1; x < 256; ++x) {
                 dr = dr + yr[x][cr] + (y % 96);
-
                 r = dr / 12;
                 dr = dr - r * 12;
                 if (r > 7){

@@ -1,0 +1,427 @@
+MUL3 MACRO
+	LD B, A
+	ADD A, A
+	ADD A, B
+ENDM
+
+MUL6 MACRO
+	ADD A, A
+	LD B, A
+	ADD A, A
+	ADD A, B
+ENDM
+
+MUL12 MACRO
+	ADD A, A
+	ADD A, A
+	LD B, A
+	ADD A, A
+	ADD A, B
+ENDM
+
+MUL16 MACRO
+	ADD A, A
+	ADD A, A
+	ADD A, A
+	ADD A, A
+ENDM
+
+MUL32 MACRO
+	ADD A, A
+	ADD A, A
+	ADD A, A
+	ADD A, A
+	ADD A, A
+ENDM
+
+DIV16A MACRO
+	RRA
+	RRA
+	RRA
+	RRA
+	AND 15
+ENDM
+
+DIV64A MACRO
+	RRA
+	RRA
+	RRA
+	RRA
+	RRA
+	RRA
+	AND 3
+ENDM
+
+CLIP7 MACRO
+	LOCAL CLIPEND
+	CP 8
+	JP C, CLIPEND
+	LD A, 7
+CLIPEND:
+ENDM
+
+MODULO MACRO N
+	LOCAL MODEND
+	SUB N
+	JP NC, MODEND
+	ADD A, N
+MODEND:
+ENDM
+
+RDVDP	EQU	6H
+WRVDP	EQU	7H
+
+	ORG 0C000H-7
+			; bsave header
+	DEFB 0FEH
+	DEFW 0C000H
+	DEFW COLG
+	DEFW 0C000H
+
+			; clear diffnr, diffng
+	LD BC, 256 * 2 * 2
+	LD HL, DIFFNR
+	LD D, 0
+INIT:
+	LD (HL), D
+	INC HL
+	DEC BC
+	LD A, B
+	OR C
+	JP NZ, INIT
+
+	XOR A
+	LD (VAR_Y), A
+LOOPY:
+			; int cr = y % 2;
+			; int cw = 1 - cr;
+	LD A,(VAR_Y)
+	AND 1
+	LD B, A
+
+	LD HL, DIFFNR
+	ADD A, H
+	LD H, A
+	PUSH HL
+	POP IX
+
+	SUB B
+	LD H, A
+	LD A, B
+	XOR 1
+	ADD H
+	LD H, A
+	PUSH HL
+	POP IY
+
+			; int dr = yr[0][cr] + (y % 96);
+			; int b1 = y / 96 * 2;
+	LD B, 0
+	LD A, (VAR_Y)
+	CP 96
+	JP C, YMOD96_1
+	SUB 96
+	LD B, 2
+YMOD96_1:
+	LD HL, B1
+	LD (HL), B
+	ADD A, (IX+0)
+			; int r = dr / 12;
+			; if (r > 7){
+			;     r = 7;
+			; }
+			; dr = dr - r * 12;
+	LD E, A
+	CALL DIV12
+	;LD C, A
+	LD A, B
+	CLIP7
+	;LD (COLR), A
+	LD H, A
+	MUL12
+	LD B, A
+	LD A, E
+	SUB A, B
+			; int tr = dr * 6 / 16; yr[0][cw] = tr;
+	;LD A, C
+	MUL6
+	DIV16A
+	LD (IY+0), A
+	LD B, A
+			; t = dr / 16; yr[1][cw] = t;
+	LD A, C
+	DIV16A
+	LD (IY+1), A
+			; dr = dr - tr - t;
+	LD A, C
+	AND 0F0H
+	SUB B
+	LD (DIFFR), A
+
+			; int dg = yg[0][cr];
+	LD DE, 512
+	ADD IX, DE
+	ADD IY, DE
+	LD C, (IX+0)
+			; int g = dg / 16;
+	LD A, C
+	DIV16A
+			; if (g > 7){
+			;     g = 7;
+			; }
+	CLIP7
+	;LD (COLG), A
+	LD L, A
+			; dg = dg - g * 16;
+	MUL16
+	LD B, A
+	LD A, C
+	SUB A, B
+	LD C, A
+			; int tg = dg * 6 / 16; yg[0][cw] = tg;
+	MUL6
+	DIV16A
+	LD (IY+0), A
+	LD B, A
+			; t = dg / 16; yg[1][cw] = t;
+	LD A, C
+	DIV16A
+	LD (IY+1), A
+	LD D, A
+			; dg = dg - tg - t;
+	LD A, C
+	SUB A, B
+	SUB A, D
+	LD (DIFFG), A
+
+			; c = color(r * 32 + g * 4 + b1)
+	LD A, L
+	MUL32
+	LD L, A
+	LD A, H
+	ADD A, A
+	ADD A, A
+	ADD A, L
+	LD HL, B1
+	ADD A, (HL)
+	LD D, A
+
+			; img.setrgb(0, y, c);
+	LD A, (WRVDP)
+	LD C, A
+	INC C
+	
+	LD A, (VAR_Y)
+	LD B, A
+	DIV64A
+	DI
+	OUT (C), A
+	LD A, 80H + 14
+	OUT (C), A
+	XOR A
+	OUT (C), A
+	LD A, B
+	AND 3FH
+	OR 40H
+	OUT (C), A
+	DEC C
+	OUT (C), D
+	EI
+
+	AND A
+	LD DE, -512
+	ADD IX, DE
+	ADD IY, DE
+
+	XOR A
+	LD (VAR_X),A
+LOOPX:
+			; dr = dr + yr[x][cr] + (y % 96);
+	LD A, (VAR_Y)
+	MODULO 96
+	ADD A, (IX + 1)
+	LD HL, DIFFR
+	ADD A, (HL)
+
+			; r = dr / 12;
+			; dr = dr - r * 12;
+	LD E, A
+	CALL DIV12
+	LD A, B
+			; if (r > 7){
+			;     r = 7;
+			; }
+	CLIP7
+	LD (COLR), A
+	MUL12
+	LD B, A
+	LD A, E
+	SUB A, B
+
+			; t = dr / 16; yr[x + 1][cw] = t; dr = dr - t;
+	;LD A, C
+	DIV16A
+	LD (IY+2), A
+	LD B, A
+	LD A, C
+	SUB B
+	LD E, A
+			; t = dr / 3; yr[x][cw] = yr[x][cw] + t; dr = dr - t;
+	CALL DIV3
+	LD B, A
+	ADD A, (IY+1)
+	LD (IY+1),A
+	LD A, E
+	SUB B
+	LD E, A
+			; t = dr * 3 / 10; yr[x - 1][cw] = yr[x - 1][cw] + t;
+			; dr = dr - t;
+	MUL3
+	CALL DIV10
+	LD B, A
+	ADD A, (IY+0)
+	LD (IY+0),A
+	LD A, E
+	SUB B
+	LD (DIFFR), A
+
+	LD DE, 512
+	ADD IX, DE
+	ADD IY, DE
+			; dg = dg + yg[x][cr] + (x % 128);
+	LD A, (VAR_X)
+	MODULO 128
+	ADD A, (IX + 1)
+	LD HL, DIFFG
+	ADD A, (HL)
+
+			; g = dg / 16;
+	LD C, A
+	DIV16A
+			; if (g > 7){
+			;     g = 7;
+			; }
+	CLIP7
+	LD (COLG), A
+			; dg = dg - g * 16;
+	MUL16
+	LD B, A
+	LD A, C
+	SUB A, B
+	LD C, A
+			; t = dg / 16; yg[x + 1][cw] = t; dg = dg - t;
+	DIV16A
+	LD (IY+2), A
+	LD B, A
+	LD A, C
+	SUB B
+	LD E, A
+			; t = dg / 3; yg[x][cw] = yg[x][cw] + t; dg = dg - t;
+	CALL DIV3
+	LD B, A
+	ADD A, (IY + 1)
+	LD (IY+1), A
+	LD A, E
+	SUB B
+	LD E, A
+			; t = dg * 3 / 10; yg[x - 1][cw] = yg[x - 1][cw] + t;
+			; dg = dg - t;
+	MUL3
+	CALL DIV10
+	LD B, A
+	ADD A, (IY+0)
+	LD (IY+0),A
+	LD A,E
+	SUB B
+	LD (DIFFG), A
+
+			; c = color(r * 32 + g * 4 + b1 + x / 128)
+	LD A, (COLR)
+	ADD A, A
+	ADD A, A
+	LD L, A
+	LD A, (COLG)
+	MUL32
+	ADD A, L
+	LD HL, B1
+	ADD A, (HL)
+	LD D, A
+	LD A, (VAR_X)
+	LD E, A
+	AND 128
+	JP Z, DIV128
+	INC D
+DIV128:
+			; img.setrgb(x, y, c);
+	LD A, (WRVDP)
+	LD C, A
+	INC C
+
+	LD A, (VAR_Y)
+	DI
+	OUT (C), E
+	AND 3FH
+	OR 40H
+	OUT (C), A
+	DEC C
+	OUT (C), D
+	EI
+
+	AND A
+	LD DE, -511
+	ADD IX, DE
+	ADD IY, DE
+
+	LD A,(VAR_X)
+	INC A
+	LD (VAR_X),A
+	JP NZ, LOOPX
+
+	LD A,(VAR_Y)
+	INC A
+	LD (VAR_Y),A
+	CP 192
+	JP NZ, LOOPY
+	RET
+
+; IN A
+; OUT A MOD
+;     B DIV
+; USE C, D
+DIV3:
+	LD C, 0C0H
+	LD D, 7
+	JP DIV_JP
+DIV10:
+	LD C, 0A0H
+	LD D, 5
+	JP DIV_JP
+DIV12:
+	LD C, 0C0H
+	LD D, 5
+DIV_JP:
+	LD B, 0
+DIV_LP:
+	SLA B
+	INC B
+	SUB C
+	JP NC, DIV_NX
+	DEC B
+	ADD C
+DIV_NX:
+	SRL C
+	DEC D
+	JP NZ,DIV_LP
+	RET
+	
+VAR_X:	DEFB 0
+VAR_Y:	DEFB 0
+DIFFNR:	DEFS 256*2
+DIFFNG: DEFS 256*2
+DIFFR:	DEFB 0
+DIFFG:	DEFB 0
+B1:	DEFB 0
+COLR:	DEFB 0
+COLG:	DEFB 0
+
+	END
