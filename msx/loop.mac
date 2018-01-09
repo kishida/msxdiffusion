@@ -26,6 +26,13 @@ MUL32 MACRO
 	MUL16
 ENDM
 
+DIV8A MACRO
+	RRA
+	RRA
+	RRA
+	AND 31
+ENDM
+
 DIV16A MACRO
 	RRA
 	RRA
@@ -44,15 +51,15 @@ DIV64A MACRO
 	AND 3
 ENDM
 
-DIV3 MACRO
-	LD C, 0C0H
-	LD B, 7
+DIV3_4bit MACRO
+	LD C, 0CH
+	LD B, 3
 	CALL DIV_JP
 ENDM
 
-DIV10 MACRO
-	LD C, 0A0H
-	LD B, 5
+DIV10_6bit MACRO
+	LD C, 028H
+	LD B, 3
 	CALL DIV_JP
 ENDM
 
@@ -150,8 +157,8 @@ YMOD96_1:
 	SUB A, E
 	NEG
 			; int tr = dr * 6 / 16; yr[0][cw] = tr;
-	MUL6
-	DIV16A
+	MUL3
+	DIV8A
 	LD (IY+0), A
 	LD B, A
 			; t = dr / 16; yr[1][cw] = t;
@@ -170,9 +177,9 @@ YMOD96_1:
 	LD DE, BUFSIZ
 	ADD IX, DE
 	ADD IY, DE
-	LD C, (IX+0)
+	LD E, (IX+0)
 			; int g = dg / 16;
-	LD A, C
+	LD A, E
 	DIV16A
 			; if (g > 7){
 			;     g = 7;
@@ -180,14 +187,13 @@ YMOD96_1:
 	CLIP7
 	MUL32
 	LD L, A
-			; dg = dg - g * 16;
-	RRA
-	SUB A, C
-	NEG
+			; dg = dg % 16;
+	LD A, E
+	AND 15
 	LD C, A
 			; int tg = dg * 6 / 16; yg[0][cw] = tg;
-	MUL6
-	DIV16A
+	MUL3
+	DIV8A
 	LD (IY+0), A
 	LD B, A
 			; t = dg / 16; yg[1][cw] = t;
@@ -261,16 +267,13 @@ LOOPX:
 	MUL3
 	SUB A, E
 	NEG
+	AND 15
 
 			; t = dr / 16; yr[x + 1][cw] = t; dr = dr - t;
 	LD E, A
-	DIV16A
-	LD (IY+2), A
-	SUB E
-	NEG
-	LD E, A
+	LD (IY+2), 0
 			; t = dr / 3; yr[x][cw] = yr[x][cw] + t; dr = dr - t;
-	DIV3
+	DIV3_4bit
 	ADD A, (IY+1)
 	LD (IY+1),A
 	LD A, E
@@ -279,7 +282,7 @@ LOOPX:
 			; t = dr * 3 / 10; yr[x - 1][cw] = yr[x - 1][cw] + t;
 			; dr = dr - t;
 	MUL3
-	DIV10
+	DIV10_6bit
 	ADD A, (IY+0)
 	LD (IY+0),A
 	LD A, E
@@ -296,7 +299,7 @@ LOOPX:
 	EXX
 	LD A, B
 	EXX
-	MODULO 128
+	AND 127
 	ADD A, (IX + 1)
 	EXX
 	ADD A, E
@@ -314,19 +317,14 @@ RCLIP:
 	CLIP7
 	MUL32
 	LD H, A
-			; dg = dg - g * 16;
-	RRA
-	SUB A, E
-	NEG
+			; dg = dg % 16;
+	LD A, E
+	AND 15
 	LD E, A
 			; t = dg / 16; yg[x + 1][cw] = t; dg = dg - t;
-	DIV16A
-	LD (IY+2), A
-	SUB A, E
-	NEG
-	LD E, A
+	LD (IY+2), 0
 			; t = dg / 3; yg[x][cw] = yg[x][cw] + t; dg = dg - t;
-	DIV3
+	DIV3_4bit
 	ADD A, (IY + 1)
 	LD (IY+1), A
 	LD A, E
@@ -335,7 +333,7 @@ RCLIP:
 			; t = dg * 3 / 10; yg[x - 1][cw] = yg[x - 1][cw] + t;
 			; dg = dg - t;
 	MUL3
-	DIV10
+	DIV10_6bit
 	ADD A, (IY+0)
 	LD (IY+0),A
 	LD A,E
