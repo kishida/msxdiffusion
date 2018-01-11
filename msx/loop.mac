@@ -91,7 +91,7 @@ BUFSIZ	EQU	512
 			; bsave header
 	DEFB 0FEH
 	DEFW 0C000H
-	DEFW VAR_Y
+	DEFW DUMMY
 	DEFW 0C000H
 
 			; clear diffnr, diffng
@@ -138,17 +138,15 @@ LOOPY:
 
 			; int dr = yr[0][cr] + (y % 96);
 			; int b1 = y / 96 * 2;
-	LD B, 2
 	EXX
+	LD H, 2
 	LD A, C
-	EXX
 	SUB 96
 	JP NC, YMOD96_1
 	ADD 96
-	LD B, 0
+	LD H, 0
 YMOD96_1:
-	LD HL, B1
-	LD (HL), B
+	EXX
 	ADD A, (IX+0)
 			; int r = dr / 12;
 			; if (r > 7){
@@ -215,10 +213,10 @@ YMOD96_1:
 	SUB A, D
 	EXX
 	LD E, A
-	EXX
 
 			; c = color(r * 32 + g * 4 + b1)
-	LD A, (B1)
+	LD A, H
+	EXX
 	ADD A, H
 	ADD A, L
 	LD D, A
@@ -350,10 +348,10 @@ RCLIP:
 	SUB D
 	EXX
 	LD E, A
+	LD A, H
 	EXX
 
 			; c = color(g * 32 + r * 4 + b1 + x / 128)
-	LD A, (B1)
 	ADD A, H
 	ADD A, L
 	LD D, A
@@ -428,7 +426,5 @@ DIVM_N:
 DIFFNR:	DEFS BUFSIZ
 DIFFNG: DEFS BUFSIZ
 DUMMY:	DEFB 0
-B1:	DEFB 0
-VAR_Y:	DEFB 0
 
 	END
