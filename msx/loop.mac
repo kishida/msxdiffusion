@@ -106,6 +106,10 @@ INIT:
 	OR C
 	JP NZ, INIT
 
+	LD A, (WRVDP)
+	INC A
+	EX AF, AF'
+
 	XOR A
 	LD (VAR_Y), A
 LOOPY:
@@ -216,9 +220,9 @@ YMOD96_1:
 	LD D, A
 
 			; img.setrgb(0, y, c);
-	LD A, (WRVDP)
+	EX AF, AF'
 	LD C, A
-	INC C
+	EX AF, AF'
 
 	LD A, (VAR_Y)
 	LD B, A
@@ -356,9 +360,9 @@ RCLIP:
 	INC D
 DIV128:
 			; img.setrgb(x, y, c);
-	LD A, (WRVDP)
+	EX AF, AF'
 	LD C, A
-	INC C
+	EX AF, AF'
 
 	LD A, (VAR_Y)
 	DI
