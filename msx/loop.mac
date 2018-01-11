@@ -111,11 +111,13 @@ INIT:
 	EX AF, AF'
 
 	XOR A
-	LD (VAR_Y), A
+	EXX
+	LD C, A
 LOOPY:
 			; int cr = y % 2;
 			; int cw = 1 - cr;
-	LD A,(VAR_Y)
+	LD A, C
+	EXX
 	AND 1
 	LD B, A
 
@@ -137,7 +139,9 @@ LOOPY:
 			; int dr = yr[0][cr] + (y % 96);
 			; int b1 = y / 96 * 2;
 	LD B, 2
-	LD A, (VAR_Y)
+	EXX
+	LD A, C
+	EXX
 	SUB 96
 	JP NC, YMOD96_1
 	ADD 96
@@ -224,7 +228,9 @@ YMOD96_1:
 	LD C, A
 	EX AF, AF'
 
-	LD A, (VAR_Y)
+	EXX
+	LD A, C
+	EXX
 	LD B, A
 	DIV64A
 	DI
@@ -247,10 +253,10 @@ YMOD96_1:
 
 	EXX
 	LD B, 1
-	EXX
 LOOPX:
 			; dr = dr + yr[x][cr] + (y % 96);
-	LD A, (VAR_Y)
+	LD A, C
+	EXX
 	MODULO 96
 	ADD A, (IX + 1)
 	EXX
@@ -364,7 +370,9 @@ DIV128:
 	LD C, A
 	EX AF, AF'
 
-	LD A, (VAR_Y)
+	EXX
+	LD A, C
+	EXX
 	DI
 	OUT (C), E
 	AND 3FH
@@ -380,12 +388,10 @@ DIV128:
 
 	EXX
 	INC B
-	EXX
 	JP NZ, LOOPX
 
-	LD A,(VAR_Y)
-	INC A
-	LD (VAR_Y),A
+	INC C
+	LD A, C
 	CP 192
 	JP NZ, LOOPY
 	RET
