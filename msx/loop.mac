@@ -93,7 +93,7 @@ BUFSIZ	EQU	512
 	DEFW 0C000H
 
 			; clear diffnr, diffng
-	LD BC, BUFSIZ * 2
+	LD BC, BUFSIZ
 	LD HL, DIFFNR
 	LD D, 0
 INIT:
@@ -114,7 +114,6 @@ INIT:
 LOOPY:
 			; int cr = y % 2;
 			; int cw = 1 - cr;
-	LD A, C
 	EXX
 	AND 1
 	LD B, A
