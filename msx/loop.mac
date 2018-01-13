@@ -275,10 +275,10 @@ LOOPX:
 
 			; t = dr / 16; yr[x + 1][cw] = t; dr = dr - t;
 	LD E, A
-	LD (IY+2), 0
+	; LD (IY+2), 0
 			; t = dr / 3; yr[x][cw] = yr[x][cw] + t; dr = dr - t;
 	DIV3_4bit
-	ADD A, (IY+1)
+	;ADD A, (IY+1)
 	LD (IY+1),A
 	LD A, E
 	SUB D
@@ -324,10 +324,10 @@ RCLIP:
 	AND 15
 	LD E, A
 			; t = dg / 16; yg[x + 1][cw] = t; dg = dg - t;
-	LD (IY+2), 0
+	;LD (IY+2), 0
 			; t = dg / 3; yg[x][cw] = yg[x][cw] + t; dg = dg - t;
 	DIV3_4bit
-	ADD A, (IY + 1)
+	;ADD A, (IY + 1)
 	LD (IY+1), A
 	LD A, E
 	SUB D
