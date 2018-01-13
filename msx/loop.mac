@@ -22,8 +22,10 @@ MUL16 MACRO
 ENDM
 
 MUL32 MACRO
-	ADD A, A
-	MUL16
+	RRCA
+	RRCA
+	RRCA
+	AND 0E0H
 ENDM
 
 DIV8A MACRO
@@ -42,12 +44,8 @@ DIV16A MACRO
 ENDM
 
 DIV64A MACRO
-	RRA
-	RRA
-	RRA
-	RRA
-	RRA
-	RRA
+	RLCA
+	RLCA
 	AND 3
 ENDM
 
@@ -254,12 +252,10 @@ YMOD96_1:
 LOOPX:
 			; dr = dr + yr[x][cr] + (y % 96);
 	LD A, C
-	EXX
 	MODULO 96
-	ADD A, (IX + 1)
-	EXX
 	ADD A, D
 	EXX
+	ADD A, (IX + 1)
 
 			; r = dr / 12;
 	LD E, A
@@ -306,12 +302,10 @@ LOOPX:
 			; dg = dg + yg[x][cr] + (x % 128);
 	EXX
 	LD A, B
-	EXX
 	AND 127
-	ADD A, (IX + 1)
-	EXX
 	ADD A, E
 	EXX
+	ADD A, (IX + 1)
 	JP NC, RCLIP
 	LD A, 0FFH
 RCLIP:
