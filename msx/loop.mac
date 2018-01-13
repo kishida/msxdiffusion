@@ -61,8 +61,16 @@ DIV10_6bit MACRO
 	CALL DIV_JP
 ENDM
 
+DIV12_7bit MACRO
+	LD C, 60H
+	LD B, 4
+	CALL DIV_JP
+ENDM
+
 DIV12 MACRO
-	CALL DIV_12
+	LD C, 0C0H
+	LD B, 5
+	CALL DIV_JP
 ENDM
 
 CLIP7 MACRO
@@ -152,6 +160,7 @@ YMOD96_1:
 			; dr = dr - r * 12;
 	LD E, A
 	DIV12
+	LD A, D
 	CLIP7
 	ADD A, A
 	ADD A, A
@@ -200,14 +209,10 @@ YMOD96_1:
 	LD (IY+0), A
 	LD B, A
 			; t = dg / 16; yg[1][cw] = t;
-	LD A, C
-	DIV16A
-	LD (IY+1), A
-	LD D, A
+			; do nothing since dg is less than 16
 			; dg = dg - tg - t;
 	LD A, C
 	SUB A, B
-	SUB A, D
 	EXX
 	LD E, A
 
@@ -258,7 +263,8 @@ LOOPX:
 
 			; r = dr / 12;
 	LD E, A
-	DIV12
+	DIV12_7bit
+	LD A, D
 			; if (r > 7){
 			;     r = 7;
 			; }
@@ -273,12 +279,11 @@ LOOPX:
 	AND 15
 
 			; t = dr / 16; yr[x + 1][cw] = t; dr = dr - t;
+			; do nothing since dr is less than 16
 	LD E, A
-	; LD (IY+2), 0
 			; t = dr / 3; yr[x][cw] = yr[x][cw] + t; dr = dr - t;
 	DIV3_4bit
-	;ADD A, (IY+1)
-	LD (IY+1),A
+	LD (IY+1),D
 	LD A, E
 	SUB D
 	LD E, A
@@ -286,6 +291,7 @@ LOOPX:
 			; dr = dr - t;
 	MUL3
 	DIV10_6bit
+	LD A, D
 	ADD A, (IY+0)
 	LD (IY+0),A
 	LD A, E
@@ -305,9 +311,6 @@ LOOPX:
 	ADD A, E
 	EXX
 	ADD A, (IX + 1)
-	JP NC, RCLIP
-	LD A, 0FFH
-RCLIP:
 
 			; g = dg / 16;
 	LD E, A
@@ -323,11 +326,10 @@ RCLIP:
 	AND 15
 	LD E, A
 			; t = dg / 16; yg[x + 1][cw] = t; dg = dg - t;
-	;LD (IY+2), 0
+			; do nothing since dg is less than 16
 			; t = dg / 3; yg[x][cw] = yg[x][cw] + t; dg = dg - t;
 	DIV3_4bit
-	;ADD A, (IY + 1)
-	LD (IY+1), A
+	LD (IY+1), D
 	LD A, E
 	SUB D
 	LD E, A
@@ -335,6 +337,7 @@ RCLIP:
 			; dg = dg - t;
 	MUL3
 	DIV10_6bit
+	LD A, D
 	ADD A, (IY+0)
 	LD (IY+0),A
 	LD A,E
@@ -388,11 +391,8 @@ DIV128:
 	RET
 
 ; IN A, B, C
-; OUT A DIV
-; USE B, C, D
-DIV_12:
-	LD C, 0C0H
-	LD B, 5
+; OUT D DIV
+; USE A, B=0, C
 DIV_JP:
 	LD D, 0
 DIV_LP:
@@ -403,7 +403,6 @@ DIV_NX:
 	INC D
 	SRL C
 	DJNZ DIV_LP
-	LD A, D
 	RET
 
 DIVM_L:
@@ -413,7 +412,6 @@ DIVM_L:
 DIVM_N:
 	SRL C
 	DJNZ DIVM_L
-	LD A, D
 	RET
 
 DIFFNR:	DEFS BUFSIZ
